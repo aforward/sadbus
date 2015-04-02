@@ -24,19 +24,19 @@ defmodule Dbus.Redis do
   end
 
   @doc """
-  Run a query directly against redis, e.g. q(["get","myval"]), it
-  will return a tuple with the result {:ok, data}.
+  Run a redis query with the expected timeout
+  from the provided `queues`.
   """
-  def q(args) do
-    :poolboy.transaction(:redis_pool, fn(worker) -> :eredis.q(worker, args, 5000) end)
+  def q(args, timeout \\ 5*1000) do
+    :poolboy.transaction(:redis_pool, fn(worker) -> :eredis.q(worker, args, timeout) end)
   end
 
   @doc """
   Run the redis query, and assume the answer will be :ok and simply
   return the data
   """
-  def q!(args) do
-    {:ok, data} = q(args)
+  def q!(args, timeout \\ 5*1000) do
+    {:ok, data} = q(args, timeout)
     data
   end
 

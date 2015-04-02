@@ -1,20 +1,10 @@
 defmodule Dbus do
   use Application
-
   alias Dbus.Redis, as: R
 
-  # See http://elixir-lang.org/docs/stable/elixir/Application.html
-  # for more information on OTP Applications
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
-
-    children = [
-      # Define workers and child supervisors to be supervised
-      worker(Dbus.Redis, [])
-    ]
-
-    # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html
-    # for other strategies and supported options
+    children = [worker(Dbus.Redis, [])]
     opts = [strategy: :one_for_one, name: Dbus.Supervisor]
     Supervisor.start_link(children, opts)
   end
@@ -50,12 +40,22 @@ defmodule Dbus do
     pop(topic, num)
     |> Enum.map(&(my_fn.(&1)))
   end
-
+  def sub(topic, my_fn), do: _sub(topic, my_fn, pop(topic))
 
   defp serialize(msg), do: :erlang.term_to_binary(msg)
   defp deserialize(:undefined), do: nil
   defp deserialize(msg), do: :erlang.binary_to_term(msg)
   defp deserialize_all(msgs), do: Enum.map(msgs, &deserialize/1)
   defp _peek(topic, num), do: R.q!(["LRANGE","topics.#{topic}",0,num - 1]) |> deserialize_all
+
+  defp _sub(topic, my_fn, nil) do
+    :timer.sleep(5*1000)
+    sub(topic, my_fn)
+  end
+
+  defp _sub(topic, my_fn, msg) do
+    my_fn.(msg)
+    sub(topic, my_fn)
+  end
 
 end
