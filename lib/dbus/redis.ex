@@ -1,7 +1,10 @@
 defmodule Dbus.Redis do
   use Supervisor
 
-  @defaults [host: "127.0.0.1", port: 6379, pool_size: 5, max_overflow: 0]
+  @defaults [host: "127.0.0.1",
+             port: 6379,
+             pool_size: 5,
+             max_overflow: 0]
 
   @doc """
   Start the shared connection pool connecting to Redis
@@ -26,6 +29,8 @@ defmodule Dbus.Redis do
   @doc """
   Run a redis query with the expected timeout
   from the provided `queues`.
+
+  E.g. q(["GET","mytitle"]) => {:ok, "I am awesome"}
   """
   def q(args, timeout \\ 5*1000) do
     :poolboy.transaction(:redis_pool, fn(worker) -> :eredis.q(worker, args, timeout) end)
@@ -34,6 +39,8 @@ defmodule Dbus.Redis do
   @doc """
   Run the redis query, and assume the answer will be :ok and simply
   return the data
+
+  E.g. q(["GET","mytitle"]) => "I am awesome"
   """
   def q!(args, timeout \\ 5*1000) do
     {:ok, data} = q(args, timeout)
