@@ -1,7 +1,6 @@
 defmodule Dbus.Redis do
   use Supervisor
 
-  @max_overflow 10
   @defaults [host: "127.0.0.1", port: 6379, pool_size: 5, max_overflow: 0]
 
   @doc """
@@ -25,10 +24,20 @@ defmodule Dbus.Redis do
   end
 
   @doc """
-  Run a query directly against redis, e.g. q(["get","myval"])
+  Run a query directly against redis, e.g. q(["get","myval"]), it
+  will return a tuple with the result {:ok, data}.
   """
   def q(args) do
-    {:ok, _item} = :poolboy.transaction(:redis_pool, fn(worker) -> :eredis.q(worker, args, 5000) end)
+    :poolboy.transaction(:redis_pool, fn(worker) -> :eredis.q(worker, args, 5000) end)
+  end
+
+  @doc """
+  Run the redis query, and assume the answer will be :ok and simply
+  return the data
+  """
+  def q!(args) do
+    {:ok, data} = q(args)
+    data
   end
 
   defp l(opts, key), do: opts[key] || @defaults[key]
