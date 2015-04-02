@@ -11,6 +11,18 @@ defmodule DbusTest do
     { :ok, [] }
   end
 
+  test "is_topic" do
+    assert Dbus.is_topic(nil) == false
+    assert Dbus.is_topic("a") == false
+    assert Dbus.is_topic(:a) == false
+
+    Dbus.register("b")
+    assert Dbus.is_topic("a") == false
+    assert Dbus.is_topic(:a) == false
+    assert Dbus.is_topic("b") == true
+    assert Dbus.is_topic(:b) == true
+  end
+
   test "topics - default" do
     assert Dbus.topics() == []
   end
@@ -109,6 +121,5 @@ defmodule DbusTest do
     assert Dbus.size("xxx") == 1
     assert Dbus.Redis.q!(["LRANGE", "test", 0, -1]) == ["one"]
   end
-
 
 end

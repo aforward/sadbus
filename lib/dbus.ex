@@ -13,28 +13,29 @@ defmodule Dbus do
     R.q!(["SMEMBERS", "topics"]) |> Enum.map(&unregister(&1))
     R.q(["DEL", "topics"])
   end
+  def is_topic(topic), do: R.q!(["SISMEMBER","topics",topic]) == "1"
   def topics(), do: R.q!(["SMEMBERS","topics"])
   def register(name), do: R.q!(["SADD","topics",name])
   def unregister(name) do
     R.q!(["SREM","topics",name])
     R.q!(["DEL","topics.#{name}"])
   end
-  def pub(topic,msg), do: R.q!(["RPUSH", "topics.#{topic}", msg |> serialize])
+  def pub(topic,msg), do: R.q!(["RPUSH", topic_id(topic), msg |> serialize])
   def peek(topic), do: _peek(topic, 0)
   def peek(_topic, 0), do: []
   def peek(topic, :all), do: _peek(topic, 0)
   def peek(topic,num), do: _peek(topic, num)
   def pop(topic), do: pop(topic, :next)
-  def pop(topic, :next), do: R.q!(["LPOP","topics.#{topic}"]) |> deserialize
+  def pop(topic, :next), do: R.q!(["LPOP",topic_id(topic)]) |> deserialize
   def pop(_topic, 0), do: []
   def pop(topic, -1), do: pop(topic, :all)
   def pop(topic, :all) do
     answer = peek(topic, :all)
-    R.q!(["DEL","topics.#{topic}"])
+    R.q!(["DEL",topic_id(topic)])
     answer
   end
   def pop(topic, num), do: 1..num |> Enum.map(fn(_i) -> pop(topic, :next) end) |> Enum.filter(&(!is_nil(&1)))
-  def size(topic), do: R.q!(["LLEN","topics.#{topic}"]) |> String.to_integer
+  def size(topic), do: R.q!(["LLEN",topic_id(topic)]) |> String.to_integer
   def process(topic, my_fn), do: process(topic, my_fn, :all)
   def process(topic, my_fn, num) do
     pop(topic, num)
@@ -46,7 +47,7 @@ defmodule Dbus do
   defp deserialize(:undefined), do: nil
   defp deserialize(msg), do: :erlang.binary_to_term(msg)
   defp deserialize_all(msgs), do: Enum.map(msgs, &deserialize/1)
-  defp _peek(topic, num), do: R.q!(["LRANGE","topics.#{topic}",0,num - 1]) |> deserialize_all
+  defp _peek(topic, num), do: R.q!(["LRANGE",topic_id(topic),0,num - 1]) |> deserialize_all
 
   defp _sub(topic, my_fn, nil) do
     :timer.sleep(5*1000)
@@ -57,5 +58,7 @@ defmodule Dbus do
     my_fn.(msg)
     sub(topic, my_fn)
   end
+
+  defp topic_id(topic), do: "topics.#{topic}"
 
 end

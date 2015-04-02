@@ -1,7 +1,7 @@
 defmodule Dbus.Redis do
   use Supervisor
 
-  @defaults [host: "127.0.0.1",
+  @defaults [host: "localhost",
              port: 6379,
              pool_size: 5,
              max_overflow: 0]
