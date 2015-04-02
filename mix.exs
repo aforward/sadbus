@@ -1,11 +1,23 @@
 defmodule Dbus.Mixfile do
   use Mix.Project
 
+  @version "0.1.0"
+  @source_url "https://github.com/aforward/dbus"
+
   def project do
     [app: :dbus,
-     version: "0.1.0",
+     version: @version,
      elixir: "~> 1.0",
-     deps: deps]
+     deps: deps
+
+     # Hex
+     description: description,
+     package: package,
+
+     # Docs
+     name: "Ecto",
+     docs: [source_ref: "v#{@version}",
+            source_url: @source_url]]
   end
 
   # Configuration for the OTP application
@@ -16,17 +28,22 @@ defmodule Dbus.Mixfile do
      mod: {Dbus, []}]
   end
 
-  # Dependencies can be Hex packages:
-  #
-  #   {:mydep, "~> 0.3.0"}
-  #
-  # Or git/path repositories:
-  #
-  #   {:mydep, git: "https://github.com/elixir-lang/mydep.git", tag: "0.1.0"}
-  #
-  # Type `mix help deps` for more examples and options
   defp deps do
     [{:eredis,  "~> 1.0"},
      {:poolboy,  "~> 1.4"}]
   end
+
+  defp description do
+    """
+    A dumb message bus for sharing data between microservices in a relatively decoupled
+    """
+  end
+
+  defp package do
+    [contributors: ["Andrew Forward"],
+     licenses: ["MIT"],
+     links: %{"GitHub" => @source_url},
+     files: ~w(mix.exs README.md CHANGELOG.md lib)]
+  end
+
 end
