@@ -15,7 +15,7 @@ defmodule Dbus.Mixfile do
      package: package,
 
      # Docs
-     name: "Ecto",
+     name: "DBus",
      docs: [source_ref: "v#{@version}",
             source_url: @source_url]]
   end
