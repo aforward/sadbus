@@ -39,7 +39,7 @@ defmodule Dbus do
 
   def pub(topic,msg) do
     R.q!(["RPUSH", topic_id(topic), msg |> serialize])
-    Logger.debug("Sent #{topic}: #{msg |> serialize}")
+    Logger.debug("Sent #{topic}: #{msg |> inspect}")
   end
 
   def peek(topic), do: _peek(topic, 0)
@@ -81,7 +81,7 @@ defmodule Dbus do
 
   defp _sub(topic, my_fn, msg) do
     my_fn.(msg)
-    Logger.debug("Received #{topic}: #{msg |> serialize}")
+    Logger.debug("Received #{topic}: #{msg |> inspect}")
     sub(topic, my_fn)
   end
 
