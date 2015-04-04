@@ -1,5 +1,6 @@
 defmodule Dbus do
   use Application
+  require Logger
   alias Dbus.Redis, as: R
 
   def start(_type, _args) do
@@ -10,17 +11,37 @@ defmodule Dbus do
   end
 
   def kill()do
+    Logger.info("Removing all topics and messages...\n")
     R.q!(["SMEMBERS", "topics"]) |> Enum.map(&unregister(&1))
     R.q(["DEL", "topics"])
+    Logger.debug("DONE, Removing all topics and messages.\n")
   end
   def is_topic(topic), do: R.q!(["SISMEMBER","topics",topic]) == "1"
   def topics(), do: R.q!(["SMEMBERS","topics"])
-  def register(name), do: R.q!(["SADD","topics",name])
-  def unregister(name) do
-    R.q!(["SREM","topics",name])
-    R.q!(["DEL","topics.#{name}"])
+  def register(name) do
+    was_added = R.q!(["SADD","topics",name]) == "1"
+    if was_added do
+      Logger.info("Registered topic #{name}.\n")
+    else
+      Logger.debug("Topic #{name}, already registered.\n")
+    end
   end
-  def pub(topic,msg), do: R.q!(["RPUSH", topic_id(topic), msg |> serialize])
+  def unregister(name) do
+    was_removed = R.q!(["SREM","topics",name]) == "1"
+    R.q!(["DEL","topics.#{name}"])
+
+    if was_removed do
+      Logger.info("Unregistered topic #{name}, and removed all messages.\n")
+    else
+      Logger.debug("Topic #{name} does not exist, nothing to unregister.\n")
+    end
+  end
+
+  def pub(topic,msg) do
+    R.q!(["RPUSH", topic_id(topic), msg |> serialize])
+    Logger.debug("Sent #{topic}:\n#{msg |> serialize}\n")
+  end
+
   def peek(topic), do: _peek(topic, 0)
   def peek(_topic, 0), do: []
   def peek(topic, :all), do: _peek(topic, 0)
@@ -41,7 +62,10 @@ defmodule Dbus do
     pop(topic, num)
     |> Enum.map(&(my_fn.(&1)))
   end
-  def sub(topic, my_fn), do: _sub(topic, my_fn, pop(topic))
+  def sub(topic, my_fn) do
+    _sub(topic, my_fn, pop(topic))
+    Logger.debug("Subscribing to #{topic}.\n")
+  end
 
   defp serialize(msg), do: :erlang.term_to_binary(msg)
   defp deserialize(:undefined), do: nil
@@ -50,12 +74,14 @@ defmodule Dbus do
   defp _peek(topic, num), do: R.q!(["LRANGE",topic_id(topic),0,num - 1]) |> deserialize_all
 
   defp _sub(topic, my_fn, nil) do
+    Logger.debug("Subscriber to #{topic} sleeping 5 seconds awaiting message.\n")
     :timer.sleep(5*1000)
     sub(topic, my_fn)
   end
 
   defp _sub(topic, my_fn, msg) do
     my_fn.(msg)
+    Logger.debug("Received #{topic}:\n#{msg |> serialize}\n")
     sub(topic, my_fn)
   end
 
