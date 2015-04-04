@@ -11,19 +11,19 @@ defmodule Dbus do
   end
 
   def kill()do
-    Logger.info("Removing all topics and messages...\n")
+    Logger.info("Removing all topics and messages...")
     R.q!(["SMEMBERS", "topics"]) |> Enum.map(&unregister(&1))
     R.q(["DEL", "topics"])
-    Logger.debug("DONE, Removing all topics and messages.\n")
+    Logger.debug("DONE, Removing all topics and messages.")
   end
   def is_topic(topic), do: R.q!(["SISMEMBER","topics",topic]) == "1"
   def topics(), do: R.q!(["SMEMBERS","topics"])
   def register(name) do
     was_added = R.q!(["SADD","topics",name]) == "1"
     if was_added do
-      Logger.info("Registered topic #{name}.\n")
+      Logger.info("Registered topic #{name}.")
     else
-      Logger.debug("Topic #{name}, already registered.\n")
+      Logger.debug("Topic #{name}, already registered.")
     end
   end
   def unregister(name) do
@@ -31,15 +31,15 @@ defmodule Dbus do
     R.q!(["DEL","topics.#{name}"])
 
     if was_removed do
-      Logger.info("Unregistered topic #{name}, and removed all messages.\n")
+      Logger.info("Unregistered topic #{name}, and removed all messages.")
     else
-      Logger.debug("Topic #{name} does not exist, nothing to unregister.\n")
+      Logger.debug("Topic #{name} does not exist, nothing to unregister.")
     end
   end
 
   def pub(topic,msg) do
     R.q!(["RPUSH", topic_id(topic), msg |> serialize])
-    Logger.debug("Sent #{topic}:\n#{msg |> serialize}\n")
+    Logger.debug("Sent #{topic}: #{msg |> serialize}")
   end
 
   def peek(topic), do: _peek(topic, 0)
@@ -64,7 +64,7 @@ defmodule Dbus do
   end
   def sub(topic, my_fn) do
     _sub(topic, my_fn, pop(topic))
-    Logger.debug("Subscribing to #{topic}.\n")
+    Logger.debug("Subscribing to #{topic}.")
   end
 
   defp serialize(msg), do: :erlang.term_to_binary(msg)
@@ -74,14 +74,14 @@ defmodule Dbus do
   defp _peek(topic, num), do: R.q!(["LRANGE",topic_id(topic),0,num - 1]) |> deserialize_all
 
   defp _sub(topic, my_fn, nil) do
-    Logger.debug("Subscriber to #{topic} sleeping 5 seconds awaiting message.\n")
+    Logger.debug("Subscriber to #{topic} sleeping 5 seconds awaiting message.")
     :timer.sleep(5*1000)
     sub(topic, my_fn)
   end
 
   defp _sub(topic, my_fn, msg) do
     my_fn.(msg)
-    Logger.debug("Received #{topic}:\n#{msg |> serialize}\n")
+    Logger.debug("Received #{topic}: #{msg |> serialize}")
     sub(topic, my_fn)
   end
 
