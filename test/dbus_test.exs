@@ -5,7 +5,14 @@ defmodule DbusTest do
     Dbus.Redis.q(["RPUSH","test",args[:var]])
   end
 
+  def answer_to_life(msg) do
+    if msg != 42 do
+      throw(msg)
+    end
+  end
+
   setup do
+    Logger.disable(self())
     Dbus.kill
     Dbus.Redis.q(["del","test"])
     { :ok, [] }
@@ -100,6 +107,45 @@ defmodule DbusTest do
     assert Dbus.size("xxx") == 2
     Dbus.pop("xxx")
     assert Dbus.size("xxx") == 1
+  end
+
+  test "num_total -- running total" do
+    Dbus.register("xxx")
+    assert Dbus.num_total("xxx") == 0
+    Dbus.pub("xxx", [var: "1"])
+    Dbus.pub("xxx", [var: "2"])
+    assert Dbus.num_total("xxx") == 2
+    Dbus.pop("xxx")
+    assert Dbus.num_total("xxx") == 2
+    Dbus.pub("xxx", [var: "2"])
+    assert Dbus.num_total("xxx") == 3
+  end
+
+  test "num_processed -- running num_total" do
+    Dbus.register("xxx")
+    Dbus.pub("xxx", 42)
+    Dbus.pub("xxx", 42)
+    assert Dbus.num_processed("xxx") == 0
+    assert Dbus.num_failed("xxx") == 0
+    Dbus.process("xxx", &answer_to_life/1, 1)
+    assert Dbus.num_processed("xxx") == 1
+    assert Dbus.num_failed("xxx") == 0
+    Dbus.process("xxx", &answer_to_life/1, 1)
+    assert Dbus.num_processed("xxx") == 2
+    assert Dbus.num_failed("xxx") == 0
+  end
+
+  test "num_failed -- running num_total" do
+    Dbus.register("xxx")
+    Dbus.pub("xxx", 41)
+    Dbus.pub("xxx", 40)
+    assert Dbus.num_processed("xxx") == 0
+    Dbus.process("xxx", &answer_to_life/1, 1)
+    assert Dbus.num_processed("xxx") == 0
+    assert Dbus.num_failed("xxx") == 1
+    Dbus.process("xxx", &answer_to_life/1, 1)
+    assert Dbus.num_processed("xxx") == 0
+    assert Dbus.num_failed("xxx") == 2
   end
 
   test "process - all" do
