@@ -6,10 +6,11 @@ defmodule DbusTest do
   end
 
   def answer_to_life(msg) do
-    if msg == 42 || msg == "forty-two" do
-      # do nothing
-    else
-      throw(msg)
+    case msg do
+      42 -> nil
+      "forty-two" -> nil
+      41 -> raise "So close"
+      _ -> throw("Damn you #{msg}")
     end
   end
 

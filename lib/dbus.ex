@@ -99,16 +99,23 @@ defmodule Dbus do
   defp _process(topic, my_fn, msg) do
     try do
       my_fn.(msg)
-      R.q!(["INCR", num_processed_id(topic)])
-      R.q!(["RPUSH", recent_processed_id(topic), msg |> serialize])
-      R.q!(["LTRIM", recent_processed_id(topic), @recent_index, -1])
+      add_processed(topic, msg)
       Logger.debug("Processd message (#{topic}): #{msg |> inspect}")
-    catch _x ->
-      R.q!(["INCR", num_failed_id(topic)])
-      R.q!(["RPUSH", recent_failed_id(topic), msg |> serialize])
-      R.q!(["LTRIM", recent_failed_id(topic), @recent_index, -1])
-      Logger.error("Failed to process (#{topic}): #{msg |> inspect}")
+    catch t ->
+      add_failed(topic, msg)
+      Logger.error("Failed (catch) to process (#{topic}): #{msg |> inspect} due to #{t}")
+    rescue e ->
+      add_failed(topic, msg)
+      Logger.error("Failed (rescue) to process (#{topic}): #{msg |> inspect} due to #{e |> inspect}")
     end
+  end
+
+  defp add_processed(topic, msg), do: add_observed(msg, num_processed_id(topic), recent_processed_id(topic))
+  defp add_failed(topic, msg), do: add_observed(msg, num_failed_id(topic), recent_failed_id(topic))
+  defp add_observed(msg, num_id, recent_id) do
+    R.q!(["INCR", num_id])
+    R.q!(["RPUSH", recent_id, msg |> serialize])
+    R.q!(["LTRIM", recent_id, @recent_index, -1])
   end
 
   defp topic_id(topic), do: "topics.#{topic}"
