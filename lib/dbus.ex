@@ -3,6 +3,8 @@ defmodule Dbus do
   require Logger
   alias Dbus.Redis, as: R
 
+  @recent_index -100
+
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
     children = [worker(Dbus.Redis, [])]
@@ -26,14 +28,19 @@ defmodule Dbus do
       Logger.debug("Topic #{name}, already registered.")
     end
   end
-  def unregister(name) do
-    was_removed = R.q!(["SREM", "topics", name]) == "1"
-    R.q!(["DEL", topic_id(name), total_id(name), processed_id(name), failed_id(name)])
-
+  def unregister(topic) do
+    was_removed = R.q!(["SREM", "topics", topic]) == "1"
     if was_removed do
-      Logger.info("Unregistered topic #{name}, and removed all messages.")
+      R.q!(["DEL",
+            topic_id(topic),
+            total_id(topic),
+            num_processed_id(topic),
+            num_failed_id(topic),
+            recent_processed_id(topic),
+            recent_failed_id(topic)])
+      Logger.info("Unregistered topic #{topic}, and removed all messages.")
     else
-      Logger.debug("Topic #{name} does not exist, nothing to unregister.")
+      Logger.debug("Topic #{topic} does not exist, nothing to unregister.")
     end
   end
 
@@ -59,8 +66,10 @@ defmodule Dbus do
   def pop(topic, num), do: 1..num |> Enum.map(fn(_i) -> pop(topic, :next) end) |> Enum.filter(&(!is_nil(&1)))
   def size(topic), do: R.q!(["LLEN", topic_id(topic)]) |> to_i
   def num_total(topic), do: R.q!(["GET", total_id(topic)]) |> to_i
-  def num_processed(topic), do: R.q!(["GET", processed_id(topic)]) |> to_i
-  def num_failed(topic), do: R.q!(["GET", failed_id(topic)]) |> to_i
+  def num_processed(topic), do: R.q!(["GET", num_processed_id(topic)]) |> to_i
+  def num_failed(topic), do: R.q!(["GET", num_failed_id(topic)]) |> to_i
+  def processed(topic), do: R.q!(["LRANGE", recent_processed_id(topic), 0, -1]) |> deserialize_all
+  def failed(topic), do: R.q!(["LRANGE", recent_failed_id(topic), 0, -1]) |> deserialize_all
   def process(topic, my_fn), do: process(topic, my_fn, :all)
   def process(topic, my_fn, num), do: pop(topic, num) |> Enum.map(&(_process(topic, my_fn, &1)))
 
@@ -90,18 +99,24 @@ defmodule Dbus do
   defp _process(topic, my_fn, msg) do
     try do
       my_fn.(msg)
-      R.q!(["INCR", processed_id(topic)])
+      R.q!(["INCR", num_processed_id(topic)])
+      R.q!(["RPUSH", recent_processed_id(topic), msg |> serialize])
+      R.q!(["LTRIM", recent_processed_id(topic), @recent_index, -1])
       Logger.debug("Processd message (#{topic}): #{msg |> inspect}")
     catch _x ->
-      Logger.error("Failed to process (#{topic}): #{msg  |> inspect}")
-      R.q!(["INCR", failed_id(topic)])
+      R.q!(["INCR", num_failed_id(topic)])
+      R.q!(["RPUSH", recent_failed_id(topic), msg |> serialize])
+      R.q!(["LTRIM", recent_failed_id(topic), @recent_index, -1])
+      Logger.error("Failed to process (#{topic}): #{msg |> inspect}")
     end
   end
 
   defp topic_id(topic), do: "topics.#{topic}"
   defp total_id(topic), do: "topics.#{topic}.num-total"
-  defp processed_id(topic), do: "topics.#{topic}.num-processed"
-  defp failed_id(topic), do: "topics.#{topic}.num-failed"
+  defp num_processed_id(topic), do: "topics.#{topic}.num-processed"
+  defp num_failed_id(topic), do: "topics.#{topic}.num-failed"
+  defp recent_processed_id(topic), do: "topics.#{topic}.recent-processed"
+  defp recent_failed_id(topic), do: "topics.#{topic}.recent-failed"
 
   defp to_i(""), do: 0
   defp to_i(:undefined), do: 0

@@ -6,7 +6,9 @@ defmodule DbusTest do
   end
 
   def answer_to_life(msg) do
-    if msg != 42 do
+    if msg == 42 || msg == "forty-two" do
+      # do nothing
+    else
       throw(msg)
     end
   end
@@ -168,4 +170,36 @@ defmodule DbusTest do
     assert Dbus.Redis.q!(["LRANGE", "test", 0, -1]) == ["one"]
   end
 
+  test "processed" do
+    Dbus.register("xxx")
+    Dbus.pub("xxx", 42)
+    Dbus.pub("xxx", "forty-two")
+    assert Dbus.processed("xxx") == []
+    assert Dbus.failed("xxx") == []
+
+    Dbus.process("xxx", &answer_to_life/1, 1)
+    assert Dbus.processed("xxx") == [42]
+    assert Dbus.failed("xxx") == []
+
+    Dbus.process("xxx", &answer_to_life/1, 1)
+    assert Dbus.processed("xxx") == [42, "forty-two"]
+    assert Dbus.failed("xxx") == []
+  end
+
+  test "failed" do
+    Dbus.register("xxx")
+    Dbus.pub("xxx", 41)
+    Dbus.pub("xxx", 40)
+
+    assert Dbus.processed("xxx") == []
+    assert Dbus.failed("xxx") == []
+
+    Dbus.process("xxx", &answer_to_life/1, 1)
+    assert Dbus.processed("xxx") == []
+    assert Dbus.failed("xxx") == [41]
+
+    Dbus.process("xxx", &answer_to_life/1, 1)
+    assert Dbus.processed("xxx") == []
+    assert Dbus.failed("xxx") == [41, 40]
+  end
 end
