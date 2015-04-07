@@ -1,7 +1,7 @@
 defmodule Dbus.Mixfile do
   use Mix.Project
 
-  @version "0.2.5"
+  @version "0.2.6"
   @source_url "https://github.com/aforward/dbus"
 
   def project do

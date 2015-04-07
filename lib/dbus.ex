@@ -91,8 +91,7 @@ defmodule Dbus do
   end
 
   defp _sub(topic, my_fn, msg) do
-    my_fn.(msg)
-    Logger.debug("Received #{topic}: #{msg |> inspect}")
+    _process(topic, my_fn, msg)
     sub(topic, my_fn)
   end
 
